@@ -1,0 +1,19 @@
+[package]
+name = "packet_crafter"
+version = "0.1.0"
+authors = ["Jordan Newman <jordan@swiftdental.co.uk>"]
+edition = "2018"
+
+description = """
+Makes it much easier to add getters and setters for fields of structures.
+Done by simply just adding some attributes to the struct and fields
+"""
+
+keywords = ["networking", "packet", "ip", "tcp", "udp"]
+categories = ["network-programming"]
+repository = "https://github.com/coldFireworks/packet_crafter"
+license = "MIT"
+readme = "README.md"
+
+[dependencies]
+add_getters_setters = "1.1"
