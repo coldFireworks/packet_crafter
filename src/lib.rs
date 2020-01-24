@@ -129,7 +129,7 @@ impl_get_header_methods!(
 
 #[cfg(test)]
 mod tests {
-    use super::{headers};
+    use super::{headers, AsBeBytes};
     #[test]
     fn icmp_checksum_is_calculated() {
         use headers::Header;
@@ -139,4 +139,21 @@ mod tests {
         assert_ne!(data[2], 0);
         assert_ne!(data[3], 0);
     }
+
+    #[test]
+    fn test_1_byte_u16_to_bytes() {
+        let x = 12u16;
+        assert_eq!([0, 12], x.split_to_bytes());
+    }
+
+    #[test]
+    fn test_2_byte_u16_to_bytes() {
+        let x: u16 = 0b00100001_00101100;
+        assert_eq!([0b00100001, 0b00101100], x.split_to_bytes());
+    }
+
+    // #[bench]
+    // fn bench_split_to_bytes(b: &mut Bencher) {
+    //     b.iter(|| test::black_box(300u16.split_to_bytes()));
+    // }
 }
