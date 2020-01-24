@@ -1,4 +1,4 @@
-use crate::{AsBeBytes, finalize_checksum, ip_sum};
+use crate::AsBeBytes;
 use super::{Header, PacketData, Protocol, ParseError};
 
 struct PseudoHeader {
@@ -135,4 +135,17 @@ impl Header for TcpHeader {
     fn get_min_length() -> u8 {
         20
     }
+}
+
+#[inline(always)]
+fn ip_sum(octets: [u8; 4]) -> u32 {
+    ((octets[0] as u32) << 8 | octets[1] as u32) + ((octets[2] as u32) << 8 | octets[3] as u32)
+}
+
+#[inline]
+fn finalize_checksum(mut cs: u32) -> u16 {
+    while cs >> 16 != 0 {
+        cs = (cs >> 16) + (cs & 0xFFFF);
+    }
+    !cs as u16
 }
