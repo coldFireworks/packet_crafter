@@ -1,5 +1,5 @@
 use crate::{protocol_numbers, AsBeBytes, checksum};
-use super::{Header, PacketData, Protocol};
+use super::{Header, PacketData, Protocol, ParseError};
 // use crate::net_tools::{checksum, protocol_numbers};
 
 // Note: always v4 until I implement v6 functionality
@@ -39,22 +39,6 @@ impl IpHeader {
         self.proto_set = true;
         self
     }
-
-    pub fn parse(raw_data: &[u8]) -> Self {
-        if raw_data.len() < 20 {
-            panic!("Parse IP header: invalid length");
-        }
-        Self {
-            tos: raw_data[1],
-            packet_len: ((raw_data[2] as u16) << 8) + raw_data[3] as u16,
-            identification: ((raw_data[4] as u16) << 8) + raw_data[5] as u16,
-            ttl: raw_data[8],
-            next_protocol: raw_data[9],
-            proto_set: true,
-            src_ip: [raw_data[12], raw_data[13], raw_data[14], raw_data[15]],
-            dst_ip: [raw_data[16], raw_data[17], raw_data[18], raw_data[19]],
-        }
-    }
 }
 
 impl Header for IpHeader {
@@ -87,9 +71,25 @@ impl Header for IpHeader {
             self.dst_ip[3],
         ];
         let checksum = checksum(&packet, 5).split_to_bytes();
-        packet[11] = checksum[0];
-        packet[12] = checksum[1];
+        packet[10] = checksum[0];
+        packet[11] = checksum[1];
         packet
+    }
+
+    fn parse(raw_data: &[u8]) -> Result<Box<Self>, ParseError> {
+        if raw_data.len() < Self::get_min_length().into() {
+            return Err(ParseError::InvalidLength);
+        }
+        Ok(Box::new(Self {
+            tos: raw_data[1],
+            packet_len: ((raw_data[2] as u16) << 8) + raw_data[3] as u16,
+            identification: ((raw_data[4] as u16) << 8) + raw_data[5] as u16,
+            ttl: raw_data[8],
+            next_protocol: raw_data[9],
+            proto_set: true,
+            src_ip: [raw_data[12], raw_data[13], raw_data[14], raw_data[15]],
+            dst_ip: [raw_data[16], raw_data[17], raw_data[18], raw_data[19]],
+        }))
     }
 
     fn get_proto(&self) -> Protocol {

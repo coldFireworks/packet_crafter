@@ -1,5 +1,5 @@
 use crate::{AsBeBytes, finalize_checksum, ip_sum};
-use super::{Header, PacketData, Protocol};
+use super::{Header, PacketData, Protocol, ParseError};
 
 struct PseudoHeader {
     src_ip: [u8; 4],
@@ -64,19 +64,6 @@ impl TcpHeader {
             data_len: 20 + (len as u16),
         });
     }
-
-    pub fn parse(raw_data: &[u8]) -> Self {
-        if raw_data.len() < 20 {
-            panic!("Parse TCP header: invalid length");
-        }
-        Self {
-            src_port: ((raw_data[0] as u16) << 8) + raw_data[1] as u16,
-            dst_port: ((raw_data[2] as u16) << 8) + raw_data[3] as u16,
-            flags: raw_data[13],
-            window: ((raw_data[14] as u16) << 8) + raw_data[15] as u16,
-            pseudo_header: None,
-        }
-    }
 }
 
 impl Header for TcpHeader {
@@ -122,6 +109,19 @@ impl Header for TcpHeader {
         packet[16] = checksum[0];
         packet[17] = checksum[1];
         packet
+    }
+
+    fn parse(raw_data: &[u8]) -> Result<Box<Self>, ParseError> {
+        if raw_data.len() < Self::get_min_length().into() {
+            return Err(ParseError::InvalidLength);
+        }
+        Ok(Box::new(Self {
+            src_port: ((raw_data[0] as u16) << 8) + raw_data[1] as u16,
+            dst_port: ((raw_data[2] as u16) << 8) + raw_data[3] as u16,
+            flags: raw_data[13],
+            window: ((raw_data[14] as u16) << 8) + raw_data[15] as u16,
+            pseudo_header: None,
+        }))
     }
 
     fn get_proto(&self) -> Protocol {

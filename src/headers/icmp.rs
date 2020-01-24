@@ -1,5 +1,5 @@
 use crate::{AsBeBytes, checksum};
-use super::{Header, PacketData, Protocol};
+use super::{Header, PacketData, Protocol, ParseError};
 
 #[derive(AddGetter, AddSetter)]
 #[get]
@@ -19,15 +19,6 @@ impl IcmpHeader {
             identifier,
             sequence_number
         }
-    }
-
-    pub fn parse(raw_data: &[u8]) -> Self {
-        return Self {
-            msg_type: raw_data[0],
-            code: raw_data[1],
-            identifier: ((raw_data[4] << 8) as u16) + raw_data[5] as u16,
-            sequence_number: ((raw_data[6] << 8) as u16) + raw_data[7] as u16,
-        };
     }
 }
 
@@ -50,6 +41,18 @@ impl Header for IcmpHeader {
         packet[2] = checksum[0];
         packet[3] = checksum[1];
         packet
+    }
+
+    fn parse(raw_data: &[u8]) -> Result<Box<Self>, ParseError> {
+        if raw_data.len() < Self::get_min_length().into() {
+            return Err(ParseError::InvalidLength);
+        }
+        Ok(Box::new(Self {
+            msg_type: raw_data[0],
+            code: raw_data[1],
+            identifier: ((raw_data[4] as u16) << 8) + raw_data[5] as u16,
+            sequence_number: ((raw_data[6] as u16) << 8) + raw_data[7] as u16,
+        }))
     }
 
     fn get_proto(&self) -> Protocol {
