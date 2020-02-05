@@ -1,13 +1,13 @@
 #[macro_use] extern crate add_getters_setters;
 
 pub mod protocol_numbers;
+pub mod ethertype_numbers;
 pub mod headers;
 mod protocol;
 mod helpers;
 
 pub use protocol::*;
 pub use helpers::*;
-// use helpers::{finalize_checksum};
 use headers::{
     Header,
     EthernetHeader,
