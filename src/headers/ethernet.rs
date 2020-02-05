@@ -15,11 +15,11 @@ pub struct EthernetHeader {
 }
 
 impl EthernetHeader {
-    pub fn new(src_mac: [u8; 6], dst_mac: [u8; 6]) -> Self {
+    pub fn new(src_mac: [u8; 6], dst_mac: [u8; 6], ty: u16) -> Self {
         EthernetHeader {
             dst_mac: dst_mac,
             src_mac: src_mac,
-            ty: 0x0800,
+            ty: ty,
         }
     }
 }

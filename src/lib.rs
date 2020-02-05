@@ -29,6 +29,8 @@ pub struct Packet {
 }
 
 impl Packet {
+    /// creates a new packet builder with the internal buffer capacity set to the appropriate size for the header data.
+    /// note that the headers arent created with this method, you still have to add them with add_header.
     pub fn new(protos: Vec<Protocol>) -> Self {
         Self {
             buffer: Vec::with_capacity(protos.iter().fold(0, |c, protocol| c + protocol.min_header_len()) as usize),
