@@ -8,7 +8,7 @@ pub struct IpHeader {
     #[get] #[set]   tos: u8,
     #[get] #[set]   packet_len: u16,
     #[get] #[set]   identification: u16,
-                    ttl: u8,
+    #[get] #[set]   ttl: u8,
     #[get]          next_protocol: u8,
                     proto_set: bool,
     #[get]          src_ip: [u8; 4],

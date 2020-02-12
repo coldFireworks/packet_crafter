@@ -5,7 +5,8 @@ use super::{
     ArpHeader,
     IcmpHeader,
     IpHeader,
-    TcpHeader
+    TcpHeader,
+    UdpHeader
 };
 use std::fmt;
 
@@ -28,7 +29,7 @@ impl Protocol {
             Self::ARP => ArpHeader::get_min_length(),
             Self::ICMP => IcmpHeader::get_min_length(),
             Self::TCP => TcpHeader::get_min_length(),
-            Self::UDP => 0, // not yet implemented
+            Self::UDP => UdpHeader::get_min_length(), // not yet implemented
             Self::IP => IpHeader::get_min_length(),
         }
     }

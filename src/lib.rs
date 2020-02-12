@@ -14,7 +14,8 @@ use headers::{
     ArpHeader,
     IcmpHeader,
     IpHeader,
-    TcpHeader
+    TcpHeader,
+    UdpHeader
 };
 use std::collections::HashMap;
 
@@ -86,8 +87,7 @@ impl Packet {
                 packet.add_header(TcpHeader::parse(&raw_data[ip_hdr_len..])?);
             },
             Protocol::UDP => {
-                // packet.add_header(IcmpHeader::parse(&raw_data[ip_hdr_len..])?);
-                panic!("UDP not yet implemented")
+                packet.add_header(UdpHeader::parse(&raw_data[ip_hdr_len..])?);
             },
             Protocol::IP => {
                 packet.add_header(IpHeader::parse(&raw_data[ip_hdr_len..])?);
@@ -126,6 +126,7 @@ impl_get_header_methods!(
     get_arp_header : Protocol::ARP : ArpHeader,
     get_eth_header : Protocol::ETH : EthernetHeader,
     get_tcp_header : Protocol::TCP : TcpHeader,
+    get_udp_header : Protocol::UDP : UdpHeader,
     get_icmp_header : Protocol::ICMP : IcmpHeader
 );
 

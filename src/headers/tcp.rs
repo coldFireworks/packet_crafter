@@ -1,27 +1,14 @@
 use crate::AsBeBytes;
-use super::{Header, PacketData, Protocol, ParseError};
-
-struct PseudoHeader {
-    src_ip: [u8; 4],
-    dst_ip: [u8; 4],
-    protocol: u8,
-    data_len: u16,
-}
+use super::{Header, PacketData, Protocol, ParseError, PseudoHeader};
 
 #[derive(AddGetter, AddSetter)]
 pub struct TcpHeader {
-    #[get]
-    #[set]
-    src_port: u16,
-    #[get]
-    #[set]
-    dst_port: u16,
-    #[get]
-    flags: u8,
-    #[set]
-    window: u16,
+    #[get] #[set] src_port: u16,
+    #[get] #[set] dst_port: u16,
+    #[get] #[set] flags: u8,
+    #[get] #[set] window: u16,
     pseudo_header: Option<PseudoHeader>,
-    payload: Vec<u8>
+    #[get] payload: Vec<u8>
 }
 
 pub enum TcpFlags {

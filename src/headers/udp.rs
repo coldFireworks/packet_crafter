@@ -1,22 +1,14 @@
 use crate::AsBeBytes;
-use super::{Header, PacketData, Protocol, ParseError};
-
-struct PseudoHeader {
-    src_ip: [u8; 4],
-    dst_ip: [u8; 4],
-    protocol: u8,
-    data_len: u16,
-}
+use super::{Header, PacketData, Protocol, ParseError, PseudoHeader};
 
 #[derive(AddGetter, AddSetter)]
-#[get]
-#[set]
 pub struct UdpHeader {
-    src_port: u16,
-    dst_port: u16,
-    length: u16,
-    checksum: u16,
-    pseudo_header: Option<PseudoHeader>
+    #[get] #[set] src_port: u16,
+    #[get] #[set] dst_port: u16,
+    #[get] #[set] length: u16,
+    #[get] #[set] checksum: u16,
+    pseudo_header: Option<PseudoHeader>,
+    #[get] payload: Vec<u8>
 }
 
 impl UdpHeader {
@@ -26,8 +18,8 @@ impl UdpHeader {
             dst_port: dst_port,
             length: 8,
             checksum: 0,
-
             pseudo_header: None,
+            payload: Vec::new()
         }
     }
 
@@ -83,16 +75,22 @@ impl Header for UdpHeader {
     }
 
     fn parse(raw_data: &[u8]) -> Result<Box<Self>, ParseError> {
-        if raw_data.len() < Self::get_min_length().into() {
+        let data_len = raw_data.len();
+        if data_len < Self::get_min_length().into() {
             return Err(ParseError::InvalidLength);
         }
-        Ok(Box::new(Self {
+        let mut header = Self {
             src_port: ((raw_data[0] as u16) << 8) + raw_data[1] as u16,
             dst_port: ((raw_data[2] as u16) << 8) + raw_data[3] as u16,
-            flags: raw_data[13],
-            window: ((raw_data[14] as u16) << 8) + raw_data[15] as u16,
+            length: ((raw_data[4] as u16) << 8) + raw_data[5] as u16,
+            checksum: ((raw_data[6] as u16) << 8) + raw_data[7] as u16,
             pseudo_header: None,
-        }))
+            payload: Vec::new()
+        };
+        if data_len > 8 {
+            header.payload.extend(raw_data.into_iter().skip(8));
+        }
+        Ok(Box::new(header))
     }
 
     fn get_proto(&self) -> Protocol {
@@ -100,11 +98,15 @@ impl Header for UdpHeader {
     }
 
     fn get_length(&self) -> u8 {
-        8
+        (8 + self.payload.len()) as u8
     }
 
     fn get_min_length() -> u8 {
         8
+    }
+
+    fn set_payload(&mut self, data: Vec<u8>) {
+        self.payload = data;
     }
 }
 
