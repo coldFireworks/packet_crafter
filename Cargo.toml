@@ -1,6 +1,6 @@
 [package]
 name = "packet_crafter"
-version = "0.1.3"
+version = "0.1.4"
 authors = ["Jordan Newman <jordan@swiftdental.co.uk>"]
 edition = "2018"
 

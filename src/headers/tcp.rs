@@ -1,5 +1,5 @@
 use crate::AsBeBytes;
-use super::{Header, PacketData, Protocol, ParseError, PseudoHeader};
+use super::{Header, TransportHeader, PacketData, Protocol, ParseError, PseudoHeader};
 
 #[derive(AddGetter, AddSetter)]
 pub struct TcpHeader {
@@ -8,7 +8,7 @@ pub struct TcpHeader {
     #[get] #[set] flags: u8,
     #[get] #[set] window: u16,
     pseudo_header: Option<PseudoHeader>,
-    #[get] payload: Vec<u8>
+    #[get] pseudo_header_set: bool
 }
 
 pub enum TcpFlags {
@@ -28,7 +28,7 @@ impl TcpHeader {
             window: 0xffff,
             flags: 0,
             pseudo_header: None,
-            payload: Vec::new()
+            pseudo_header_set: false
         }
     }
 
@@ -42,18 +42,20 @@ impl TcpHeader {
             TcpFlags::Fin => self.flags = self.flags | 0b00000001,
         }
     }
+}
 
-    pub fn set_pseudo_header(&mut self, src_ip: [u8; 4], dst_ip: [u8; 4], packet_data: &[u8]) {
-        let len = packet_data.len();
-        if len > (0xffff - 20) as usize {
+impl TransportHeader for TcpHeader {
+    fn set_pseudo_header(&mut self, src_ip: [u8; 4], dst_ip: [u8; 4], data_len: u16) {
+        if data_len > (0xffff - 20) {
             panic!("too much data");
         }
         self.pseudo_header = Some(PseudoHeader {
             src_ip,
             dst_ip,
             protocol: 6, // 6 = tcp
-            data_len: (len + 20) as u16,
+            data_len: (data_len + 20) as u16,
         });
+        self.pseudo_header_set = true
     }
 }
 
@@ -104,22 +106,17 @@ impl Header for TcpHeader {
     }
 
     fn parse(raw_data: &[u8]) -> Result<Box<Self>, ParseError> {
-        let data_len = raw_data.len();
-        if data_len < Self::get_min_length().into() {
+        if raw_data.len() < Self::get_min_length().into() {
             return Err(ParseError::InvalidLength);
         }
-        let mut header = Self {
+        Ok(Box::new(Self {
             src_port: ((raw_data[0] as u16) << 8) + raw_data[1] as u16,
             dst_port: ((raw_data[2] as u16) << 8) + raw_data[3] as u16,
             flags: raw_data[13],
             window: ((raw_data[14] as u16) << 8) + raw_data[15] as u16,
             pseudo_header: None,
-            payload: Vec::new()
-        };
-        if raw_data.len() > 20 {
-            header.payload.extend(raw_data.into_iter().skip(20));
-        }
-        Ok(Box::new(header))
+            pseudo_header_set: false
+        }))
     }
 
     fn get_proto(&self) -> Protocol {
@@ -134,8 +131,8 @@ impl Header for TcpHeader {
         20
     }
 
-    fn set_payload(&mut self, data: Vec<u8>) {
-        self.payload = data;
+    fn into_transport_header(&mut self) -> Option<&mut dyn TransportHeader> {
+        Some(self)
     }
 }
 

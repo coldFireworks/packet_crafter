@@ -1,5 +1,5 @@
 use crate::AsBeBytes;
-use super::{Header, PacketData, Protocol, ParseError, PseudoHeader};
+use super::{Header, TransportHeader, PacketData, Protocol, ParseError, PseudoHeader};
 
 #[derive(AddGetter, AddSetter)]
 pub struct UdpHeader {
@@ -8,7 +8,7 @@ pub struct UdpHeader {
     #[get] #[set] length: u16,
     #[get] #[set] checksum: u16,
     pseudo_header: Option<PseudoHeader>,
-    #[get] payload: Vec<u8>
+    pseudo_header_set: bool
 }
 
 impl UdpHeader {
@@ -19,22 +19,24 @@ impl UdpHeader {
             length: 8,
             checksum: 0,
             pseudo_header: None,
-            payload: Vec::new()
+            pseudo_header_set: false,
         }
     }
+}
 
-    pub fn set_pseudo_header(&mut self, src_ip: [u8; 4], dst_ip: [u8; 4], packet_data: &[u8]) {
-        let len = packet_data.len();
-        if len > (0xffff - 8) as usize {
+impl TransportHeader for UdpHeader {
+    fn set_pseudo_header(&mut self, src_ip: [u8; 4], dst_ip: [u8; 4], data_len: u16) {
+        if data_len > (0xffff - 8) {
             panic!("too much data");
         }
-        self.length += len as u16;
+        self.length += data_len as u16;
         self.pseudo_header = Some(PseudoHeader {
             src_ip,
             dst_ip,
             protocol: 17, // 17 = UDP
-            data_len: (len + 8) as u16,
+            data_len: (data_len + 8) as u16,
         });
+        self.pseudo_header_set = true;
     }
 }
 
@@ -75,22 +77,17 @@ impl Header for UdpHeader {
     }
 
     fn parse(raw_data: &[u8]) -> Result<Box<Self>, ParseError> {
-        let data_len = raw_data.len();
-        if data_len < Self::get_min_length().into() {
+        if raw_data.len() < Self::get_min_length().into() {
             return Err(ParseError::InvalidLength);
         }
-        let mut header = Self {
+        Ok(Box::new(Self {
             src_port: ((raw_data[0] as u16) << 8) + raw_data[1] as u16,
             dst_port: ((raw_data[2] as u16) << 8) + raw_data[3] as u16,
             length: ((raw_data[4] as u16) << 8) + raw_data[5] as u16,
             checksum: ((raw_data[6] as u16) << 8) + raw_data[7] as u16,
             pseudo_header: None,
-            payload: Vec::new()
-        };
-        if data_len > 8 {
-            header.payload.extend(raw_data.into_iter().skip(8));
-        }
-        Ok(Box::new(header))
+            pseudo_header_set: false
+        }))
     }
 
     fn get_proto(&self) -> Protocol {
@@ -98,15 +95,15 @@ impl Header for UdpHeader {
     }
 
     fn get_length(&self) -> u8 {
-        (8 + self.payload.len()) as u8
+        8
     }
 
     fn get_min_length() -> u8 {
         8
     }
 
-    fn set_payload(&mut self, data: Vec<u8>) {
-        self.payload = data;
+    fn into_transport_header(&mut self) -> Option<&mut dyn TransportHeader> {
+        Some(self)
     }
 }
 

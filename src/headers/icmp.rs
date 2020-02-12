@@ -1,5 +1,5 @@
 use crate::{AsBeBytes, checksum};
-use super::{Header, PacketData, Protocol, ParseError};
+use super::{Header, TransportHeader, PacketData, Protocol, ParseError};
 
 #[derive(AddGetter, AddSetter)]
 #[get]
@@ -9,7 +9,6 @@ pub struct IcmpHeader {
     code: u8,
     identifier: u16,
     sequence_number: u16,
-    payload: Vec<u8>
 }
 
 impl IcmpHeader {
@@ -19,7 +18,6 @@ impl IcmpHeader {
             code,
             identifier,
             sequence_number,
-            payload: Vec::new()
         }
     }
 }
@@ -46,21 +44,15 @@ impl Header for IcmpHeader {
     }
 
     fn parse(raw_data: &[u8]) -> Result<Box<Self>, ParseError> {
-        let data_len = raw_data.len();
-        if data_len < Self::get_min_length().into() {
+        if raw_data.len() < Self::get_min_length().into() {
             return Err(ParseError::InvalidLength);
         }
-        let mut header = Self {
+        Ok(Box::new(Self {
             msg_type: raw_data[0],
             code: raw_data[1],
             identifier: ((raw_data[4] as u16) << 8) + raw_data[5] as u16,
             sequence_number: ((raw_data[6] as u16) << 8) + raw_data[7] as u16,
-            payload: Vec::new()
-        };
-        if data_len > Self::get_min_length() as usize {
-            header.payload.extend(raw_data.into_iter().skip(8));
-        }
-        Ok(Box::new(header))
+        }))
     }
 
     fn get_proto(&self) -> Protocol {
@@ -76,7 +68,7 @@ impl Header for IcmpHeader {
         8
     }
 
-    fn set_payload(&mut self, data: Vec<u8>) {
-        self.payload = data;
+    fn into_transport_header(&mut self) -> Option<&mut dyn TransportHeader> {
+        None
     }
 }
