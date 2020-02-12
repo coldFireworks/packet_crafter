@@ -11,6 +11,7 @@ pub use arp::*;
 pub use icmp::*;
 pub use ip::*;
 pub use tcp::*;
+// pub use udp::*;
 
 pub type PacketData = Vec<u8>;
 
@@ -18,8 +19,9 @@ pub trait Header {
     fn make(self) -> PacketData;
     fn parse(raw_data: &[u8]) -> Result<Box<Self>, ParseError>;
     fn get_proto(&self) -> Protocol;
-    fn get_length(&self) -> u8;
-    fn get_min_length() -> u8;
+    fn get_length(&self) -> u8; // these are done as functions rather than constants in order to enforce all modules to have them if they want to implement this trait
+    fn get_min_length() -> u8; // these are done as functions rather than constants in order to enforce all modules to have them if they want to implement this trait
+    fn set_payload(&mut self, data: Vec<u8>);
 }
 
 impl<T: Header> Header for Box<T> {
@@ -46,5 +48,9 @@ impl<T: Header> Header for Box<T> {
 
     fn get_min_length() -> u8{
         T::get_min_length()
+    }
+
+    fn set_payload(&mut self, data: Vec<u8>) {
+        (**self).set_payload(data);
     }
 }

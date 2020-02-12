@@ -13,6 +13,7 @@ pub struct IpHeader {
                     proto_set: bool,
     #[get]          src_ip: [u8; 4],
     #[get] #[set]   dst_ip: [u8; 4],
+    payload: Vec<u8>
 }
 
 impl IpHeader {
@@ -26,6 +27,7 @@ impl IpHeader {
             proto_set: false,
             src_ip: src_ip,
             dst_ip: dst_ip,
+            payload: Vec::new()
         }
     }
 
@@ -77,10 +79,11 @@ impl Header for IpHeader {
     }
 
     fn parse(raw_data: &[u8]) -> Result<Box<Self>, ParseError> {
-        if raw_data.len() < Self::get_min_length().into() {
+        let data_len = raw_data.len();
+        if data_len < Self::get_min_length().into() {
             return Err(ParseError::InvalidLength);
         }
-        Ok(Box::new(Self {
+        let mut header = Self {
             tos: raw_data[1],
             packet_len: ((raw_data[2] as u16) << 8) + raw_data[3] as u16,
             identification: ((raw_data[4] as u16) << 8) + raw_data[5] as u16,
@@ -89,7 +92,12 @@ impl Header for IpHeader {
             proto_set: true,
             src_ip: [raw_data[12], raw_data[13], raw_data[14], raw_data[15]],
             dst_ip: [raw_data[16], raw_data[17], raw_data[18], raw_data[19]],
-        }))
+            payload: Vec::new()
+        };
+        if data_len > 20 {
+            header.payload.extend(raw_data.into_iter().skip(20));
+        }
+        Ok(Box::new(header))
     }
 
     fn get_proto(&self) -> Protocol {
@@ -102,5 +110,9 @@ impl Header for IpHeader {
 
     fn get_min_length() -> u8 {
         20
+    }
+
+    fn set_payload(&mut self, data: Vec<u8>) {
+        self.payload = data;
     }
 }

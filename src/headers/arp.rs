@@ -15,6 +15,7 @@ pub struct ArpHeader {
     #[get] #[set] sender_ip: [u8; 4],
     #[get] #[set] destination_mac: [u8; 6],
     #[get] #[set] destination_ip: [u8; 4],
+    payload: Vec<u8>
 }
 
 impl ArpHeader {
@@ -29,6 +30,7 @@ impl ArpHeader {
             sender_ip: sender_ip.into(),
             destination_mac: destination_mac,
             destination_ip: destination_ip.into(),
+            payload: Vec::new()
         }
     }
 }
@@ -73,10 +75,11 @@ impl Header for ArpHeader {
     }
 
     fn parse(raw_data: &[u8]) -> Result<Box<Self>, ParseError> {
-        if raw_data.len() < Self::get_min_length().into() {
+        let data_len = raw_data.len();
+        if data_len < Self::get_min_length().into() {
             return Err(ParseError::InvalidLength);
         }
-        Ok(Box::new(Self {
+        let mut header = Self {
             hardware_type: ((raw_data[0] as u16) << 8) + raw_data[1] as u16,
             protocol_type: ((raw_data[2] as u16) << 8) + raw_data[3] as u16,
             hardware_size: raw_data[4],
@@ -86,7 +89,12 @@ impl Header for ArpHeader {
             sender_ip: [raw_data[14], raw_data[15], raw_data[16], raw_data[17]],
             destination_mac: [raw_data[18], raw_data[19], raw_data[20], raw_data[21], raw_data[22], raw_data[23]],
             destination_ip: [raw_data[24], raw_data[25], raw_data[26], raw_data[27]],
-        }))
+            payload: Vec::new()
+        };
+        if data_len > Self::get_min_length() as usize {
+            header.payload.extend(raw_data.into_iter().skip(28));
+        }
+        Ok(Box::new(header))
     }
 
     fn get_proto(&self) -> Protocol {
@@ -103,5 +111,9 @@ impl Header for ArpHeader {
          * making the total length 18, so we just always return that here
          */
         28
+    }
+
+    fn set_payload(&mut self, data: Vec<u8>) {
+        self.payload = data;
     }
 }

@@ -4,6 +4,7 @@ use super::{Header, PacketData, Protocol, ParseError};
 struct PseudoHeader {
     src_ip: [u8; 4],
     dst_ip: [u8; 4],
+    protocol: u8,
     data_len: u16,
 }
 
@@ -20,6 +21,7 @@ pub struct TcpHeader {
     #[set]
     window: u16,
     pseudo_header: Option<PseudoHeader>,
+    payload: Vec<u8>
 }
 
 pub enum TcpFlags {
@@ -39,6 +41,7 @@ impl TcpHeader {
             window: 0xffff,
             flags: 0,
             pseudo_header: None,
+            payload: Vec::new()
         }
     }
 
@@ -61,7 +64,8 @@ impl TcpHeader {
         self.pseudo_header = Some(PseudoHeader {
             src_ip,
             dst_ip,
-            data_len: 20 + (len as u16),
+            protocol: 6, // 6 = tcp
+            data_len: (len + 20) as u16,
         });
     }
 }
@@ -98,12 +102,13 @@ impl Header for TcpHeader {
         if let None = self.pseudo_header {
             panic!("Please set the pseudo header data before calculating the checksum");
         }
+        let pseudo_header = self.pseudo_header.unwrap();
         let mut val = 0u32;
-        val += ip_sum(self.pseudo_header.as_ref().unwrap().src_ip);
-        val += ip_sum(self.pseudo_header.as_ref().unwrap().dst_ip);
-        val += 6; // this covers the reserved byte, plus the protocol field, which we set to 6 since that is the value for TCP
-        val += 20; // header length (in bytes) : when there are no options+padding present, the header length is 20 bytes
-        val += self.pseudo_header.as_ref().unwrap().data_len as u32;
+        val += ip_sum(pseudo_header.src_ip);
+        val += ip_sum(pseudo_header.dst_ip);
+        val += pseudo_header.protocol as u32; // add the value of the protocol field. Since this field is preceeded by an empty reserved byte, it maintains its value so we can just add 6 to the value as so
+        val += pseudo_header.data_len as u32; // header length (in bytes) : when there are no options+padding present, the header length is 20 bytes. this is a 16 bit field which is aligned on a boundary so we can just add this one aswell.
+        // checksum over data
         let checksum = finalize_checksum(val).split_to_bytes();
 
         packet[16] = checksum[0];
@@ -112,16 +117,22 @@ impl Header for TcpHeader {
     }
 
     fn parse(raw_data: &[u8]) -> Result<Box<Self>, ParseError> {
-        if raw_data.len() < Self::get_min_length().into() {
+        let data_len = raw_data.len();
+        if data_len < Self::get_min_length().into() {
             return Err(ParseError::InvalidLength);
         }
-        Ok(Box::new(Self {
+        let mut header = Self {
             src_port: ((raw_data[0] as u16) << 8) + raw_data[1] as u16,
             dst_port: ((raw_data[2] as u16) << 8) + raw_data[3] as u16,
             flags: raw_data[13],
             window: ((raw_data[14] as u16) << 8) + raw_data[15] as u16,
             pseudo_header: None,
-        }))
+            payload: Vec::new()
+        };
+        if raw_data.len() > 20 {
+            header.payload.extend(raw_data.into_iter().skip(20));
+        }
+        Ok(Box::new(header))
     }
 
     fn get_proto(&self) -> Protocol {
@@ -134,6 +145,10 @@ impl Header for TcpHeader {
 
     fn get_min_length() -> u8 {
         20
+    }
+
+    fn set_payload(&mut self, data: Vec<u8>) {
+        self.payload = data;
     }
 }
 

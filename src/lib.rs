@@ -59,9 +59,10 @@ impl Packet {
         self.payload.extend(buf);
     }
 
-    pub fn into_vec(self) -> Vec<u8> {
-        // TODO: need to do some benchmarks to find the best way to do this
-        self.buffer.into_iter().chain(self.payload).collect()
+    /// consumes self and returns the buffer which is the data packet.
+    pub fn into_vec(mut self) -> Vec<u8> {
+        self.buffer.append(&mut self.payload);
+        self.buffer
     }
 
     pub fn parse(raw_data: &[u8]) -> Result<Self, ParseError> {
