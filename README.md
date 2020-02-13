@@ -4,7 +4,11 @@ Create, parse and manipulate data packets. This crate provides tools which can b
 
 ## usage
 
-#### create new packet
+### create new packet
+
+***Step 1***
+
+import the appropriate parts of the package, and create a new packet struct in order to start populating it. There are two methods of creating a new packet, method 1 will set the capacity of the internal buffer to the appropriate length for the given protocols, and method 2 will just create a totally empty packet with the internal buffer capacity set to 0. Method 1 is preferred for large packets as it will be slightly more efficient as there will be no need to constantly increase the cpacity of the buffer each time data is added
 
 
 	extern crate packet_crafter;
@@ -20,13 +24,8 @@ Create, parse and manipulate data packets. This crate provides tools which can b
 		Protocol
 	};
 	
-	fn main() {
-		// ************************************
-		// *** step 1: create packet struct ***
-		// ************************************
-		
-		// method 1 (preferred): an empty packet with the buffer
-		// capacity set to the appropriate size for the given protocols
+	fn main() {		
+		// method 1 (preferred)
 		let mut new_packet = Packet::new(
 			vec![
 				Protocol::ETH,
@@ -35,14 +34,12 @@ Create, parse and manipulate data packets. This crate provides tools which can b
 			]
 		);
 	
-		// method 2: empty packet, buffer capacity 0
+		// method 2
 		let mut new_packet = Packet::new_empty();
-		
-		// ****************************************************
-		// *** step 2: create and add headers to the packet ***
-		// ****************************************************
-		// lets assume we're going with the packet structure shown in
-		// method 1, as this would be a common use...
+
+***Step 2***
+
+Create the headers and add them into the packet. Here we are going to go with the packet structure in method 1 of step 1, which Ethernet > Ip > TCP
 		
 		new_packet.add_header(
 			headers::EthernetHeader::new(
@@ -66,27 +63,24 @@ Create, parse and manipulate data packets. This crate provides tools which can b
 				3838 // destination port
 			)
 		);
+
+***Step 3***
+
+This step may not always be necessary, in cases like ICMP echos where there does not need to be data because only the headers are read. In many cases, however, you likely will want to add some payload data. Again, there are two ways to do this, method 1 will overwrite the exisiting payload data (if this is a new packet there will be none anyway, but if it is a packet that has been parsed from raw data, there may be some), and method 2 will append to the existing payload data. Notice the absence of the `.collect()` in method 2. The code would still work with it, however, it is not needed. you will see why if you look at the function signature in the source.
 		
-		// *******************************************************
-		// *** step 3 (not always necessary): add payload data ***
-		// *******************************************************
 		
-		// this will overwrite any existing payload data...
+		// method 1
 		new_packet.set_payload("Hello, world!".bytes().collect());
 		
-		// ...whereas this will append to existing payload data:
-		new_packet.extend_payload("Hello, world!".bytes())
-		// notice the absence of the `.collect()` here. The
-		// code would still work with it, however, it is not needed.
-		// you will see why if you look at the function signature in the source
+		// method 2
+		new_packet.extend_payload("Hello, world!".bytes());
+***Step 4***
 
-		// *******************************
-		// *** step 4: bake the packet ***
-		// *******************************
+The data is now ready, so we just need to bake the packet. This is where checksum fields and length fields duch as the one in the IP header will be populated (see [this doc page](https://docs.rs/packet_crafter/0.1.4/packet_crafter/headers/trait.Header.html#tymethod.make) for an explanation of why I decided to calculate these even though the OS will likely overwrite them)
 		
 		let data: Vec<u8> = new_packet.into_vec(); // type annotation is just for clarity
-		// remember that &Vec<u8> can be passed into functions expecting a &[u8] :)
 	}
+*always remember that `&Vec<u8>` can be passed into functions expecting `&[u8]` :)*
 	
 ####  parse a packet
 

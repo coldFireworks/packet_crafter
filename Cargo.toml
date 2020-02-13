@@ -1,12 +1,11 @@
 [package]
 name = "packet_crafter"
-version = "0.1.4"
+version = "0.1.5"
 authors = ["Jordan Newman <jordan@swiftdental.co.uk>"]
 edition = "2018"
 
 description = """
-Makes it much easier to add getters and setters for fields of structures.
-Done by simply just adding some attributes to the struct and fields
+Simple tools for creating / parsing / manipulating data packets. Calculates checsums and length fields where possible.
 """
 
 keywords = ["networking", "packet", "ip", "tcp", "udp"]
