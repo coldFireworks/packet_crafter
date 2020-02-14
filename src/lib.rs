@@ -55,6 +55,14 @@ impl Packet {
     /// If the header is TCP or UDP, this method will call the `set_pseudo_header` method for you,
     /// as this method is required to be called before calculating the checksum of the header
     pub fn add_header(&mut self, mut buf: impl Header) {
+        self.calculate_fields(&mut buf);
+        self.selection.insert(buf.get_proto(), self.current_index);
+        self.current_index += buf.get_length() as u32;
+        self.buffer.extend(buf.make().into_iter());
+    }
+
+    /// used internally to call functions which calcukate checsum and length fields when the header is added to the packet
+    fn calculate_fields(&mut self, buf: &mut impl Header) {
         let proto = buf.get_proto();
         match proto {
             Protocol::TCP | Protocol::UDP => {
@@ -71,9 +79,28 @@ impl Packet {
             }
             _ => {}
         }
-        self.selection.insert(proto, self.current_index);
-        self.current_index += buf.get_length() as u32;
-        self.buffer.extend(buf.make().into_iter());
+    }
+
+    /// If the header already exists in the packet, it will be updated with the one passed to this function.
+    /// if the header doesn't already exist in the packet, it will be added as if you'd called `add_header` instead.
+    pub fn update_header(&mut self, mut new_buf: impl Header) {
+        match self.selection.remove(&new_buf.get_proto()){
+            Some(i) => {
+                self.calculate_fields(&mut new_buf);
+                let proto = new_buf.get_proto();
+                self.selection.insert(proto, i);
+                let mut data_vec = new_buf.make();
+                let data = data_vec.as_mut_slice();
+                let index: usize = i as usize;
+                let section = unsafe { self.buffer.get_unchecked_mut(index..(index + proto.min_header_len() as usize)) };
+                let mut i = 0;
+                for byte in section.iter_mut() {
+                    *byte = data[i];
+                    i += 1;
+                }
+            },
+            None => self.add_header(new_buf)
+        }
     }
 
     /// Appends the given data to the payload of this packet
@@ -90,34 +117,58 @@ impl Packet {
 
     /// Try to create a `Packet` from raw packet data and populate it with the values in the given data packet
     pub fn parse(raw_data: &[u8]) -> Result<Self, ParseError> {
-        if raw_data[0] >> 4 != 4 { // TODO: not ip, probably arp, need to do a match statement on this
-            return Err(ParseError::InvalidFormat);
-        }
-        // if IP:
-        let ip_header = IpHeader::parse(raw_data)?;
         let mut packet = Self::new_empty();
+        if raw_data[0] >> 4 == 4 {
+            packet.parse_ip_packet(raw_data)?;
+            return Ok(packet);
+        }
+        packet.parse_ethernet_packet(raw_data)?;
+        Ok(packet)
+    }
+
+    fn parse_ip_packet(&mut self, raw_data: &[u8]) -> Result<(), ParseError> {
+        let ip_header = IpHeader::parse(raw_data)?;
         let next_protocol = Protocol::from(*ip_header.get_next_protocol());
         let ip_hdr_len = ip_header.get_length() as usize;
-        packet.add_header(ip_header);
+        self.add_header(ip_header);
         match next_protocol {
             Protocol::ETH => {
-                packet.add_header(EthernetHeader::parse(&raw_data[ip_hdr_len..])?); // Ethernet in ip encapsulation
+                self.add_header(EthernetHeader::parse(&raw_data[ip_hdr_len..])?); // Ethernet in ip encapsulation
             },
             Protocol::ICMP => {
-                packet.add_header(IcmpHeader::parse(&raw_data[ip_hdr_len..])?);
+                self.add_header(IcmpHeader::parse(&raw_data[ip_hdr_len..])?);
             },
             Protocol::TCP => {
-                packet.add_header(TcpHeader::parse(&raw_data[ip_hdr_len..])?);
+                self.add_header(TcpHeader::parse(&raw_data[ip_hdr_len..])?);
             },
             Protocol::UDP => {
-                packet.add_header(UdpHeader::parse(&raw_data[ip_hdr_len..])?);
+                self.add_header(UdpHeader::parse(&raw_data[ip_hdr_len..])?);
             },
             Protocol::IP => {
-                packet.add_header(IpHeader::parse(&raw_data[ip_hdr_len..])?);
+                self.add_header(IpHeader::parse(&raw_data[ip_hdr_len..])?);
             },
             _ => panic!("not a valid ip protocol"),
         }
-        Ok(packet)
+        Ok(())
+    }
+
+    fn parse_ethernet_packet(&mut self, raw_data: &[u8]) -> Result<(), ParseError> {
+        let hdr: Box<EthernetHeader> = EthernetHeader::parse(raw_data)?;
+        let et = *hdr.get_eth_type();
+        self.add_header(hdr);
+        match et {
+            ethertype_numbers::ETHERTYPE_IPV4 => {
+                self.parse_ip_packet(&raw_data[(EthernetHeader::get_min_length() as usize)..])?;
+            },
+            ethertype_numbers::ETHERTYPE_ARP |
+            ethertype_numbers::ETHERTYPE_IPV6 |
+            ethertype_numbers::ETHERTYPE_RARP |
+            ethertype_numbers::ETHERTYPE_LLDP => {
+                return Err(ParseError::NotYetImplemented);
+            },
+            _ => return Err(ParseError::InvalidFormat)
+        }
+        Ok(())
     }
 
     /// Returns `Option::Some(&[u8])` if the header is found in this packet, else None

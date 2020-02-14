@@ -4,7 +4,7 @@ use std::{fmt, slice};
 pub trait AsBeBytes {
     type Output;
 
-    fn split_to_bytes(&self) -> <Self as AsBeBytes>::Output;
+    fn split_to_bytes(self) -> <Self as AsBeBytes>::Output;
 }
 
 macro_rules! impl_split_to_bytes {
@@ -12,16 +12,15 @@ macro_rules! impl_split_to_bytes {
         impl AsBeBytes for $prim_type {
             type Output = [u8; $num_bytes];
 
-            fn split_to_bytes(&self) -> <Self as AsBeBytes>::Output {
+            fn split_to_bytes(mut self) -> <Self as AsBeBytes>::Output {
                 let mut bytes_arr = [0u8; $num_bytes];
                 let mut i: usize = bytes_arr.len()-1;
-                let mut x = self.clone();
-                while x > 256 {
-                    bytes_arr[i] = (x%256) as u8;
-                    x = x >> 8;
+                while self > 256 {
+                    bytes_arr[i] = (self%256) as u8;
+                    self = self >> 8;
                     i = i-1;
                 }
-                bytes_arr[i] = x as u8;
+                bytes_arr[i] = self as u8;
                 bytes_arr
             }
         }
@@ -34,8 +33,8 @@ impl_split_to_bytes!(u16 -> 2, u32 -> 4, u64 -> 8);
 impl AsBeBytes for u8 {
     type Output = u8;
 
-    fn split_to_bytes(&self) -> u8 {
-        self.clone()
+    fn split_to_bytes(self) -> u8 {
+        self
     }
 }
 
@@ -86,7 +85,8 @@ pub fn sum_be_words(d: &[u8], mut skipword: usize) -> u32 {
 pub enum ParseError {
     InvalidCharacter,
     InvalidLength,
-    InvalidFormat
+    InvalidFormat,
+    NotYetImplemented
 }
 
 impl ParseError {
@@ -95,6 +95,7 @@ impl ParseError {
             Self::InvalidCharacter => "invalid character encountered",
             Self::InvalidLength => "invalid length for the protocol format",
             Self::InvalidFormat => "invalid format of data for the protocol",
+            Self::NotYetImplemented => "the implementation for parsing this type of packet has not yet been made"
         }
     }
 }
