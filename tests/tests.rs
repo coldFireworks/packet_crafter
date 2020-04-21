@@ -4,6 +4,20 @@ use packet_crafter::*;
 use headers::Header;
 
 #[test]
+fn icmp_checksum_includes_payload() {
+    let icmp_header = headers::IcmpHeader::new(8, 0, 0xd49e, 0);
+    let packet_with_header_only = icmp_header.make();
+    assert_ne!(packet_with_header_only[2], 0);
+    assert_ne!(packet_with_header_only[3], 0); 
+    let mut p = Packet::new(vec![Protocol::ICMP]);
+    p.add_header(headers::IcmpHeader::new(8, 0, 0xd49e, 0));
+    p.extend_payload(vec![1, 2, 3]);
+    let packet_with_data = p.into_vec();
+    assert_ne!(packet_with_header_only[2], packet_with_data[2]);
+    assert_ne!(packet_with_header_only[3], packet_with_data[3]);
+}
+
+#[test]
 fn icmp_checksum_is_calculated() {
     // let p = Packet::new(vec![Protocol::ICMP]);
     let icmp_header = headers::IcmpHeader::new(8, 0, 0xd49e, 0);

@@ -63,22 +63,20 @@ impl Packet {
 
     /// used internally to call functions which calcukate checsum and length fields when the header is added to the packet
     fn calculate_fields(&mut self, buf: &mut impl Header) {
-        let proto = buf.get_proto();
-        match proto {
-            Protocol::TCP | Protocol::UDP => {
+        match buf.into_transport_header() {
+            Some(th) => {
                 match self.get_header_as_slice(Protocol::IP) {
                     Some(ip_header) => {
                         let src_ip: [u8; 4] = [ip_header[12], ip_header[13], ip_header[14], ip_header[15]];
                         let dst_ip: [u8; 4] = [ip_header[16], ip_header[17], ip_header[18], ip_header[19]];
                         let all_data_len: u16 = (self.buffer.len() + self.payload.len()) as u16;
-                        let th = buf.into_transport_header().unwrap();
                         th.set_pseudo_header(src_ip, dst_ip, all_data_len);
                     },
                     None => {}
                 }
             }
-            _ => {}
-        }
+            None => {}
+        };
     }
 
     /// If the header already exists in the packet, it will be updated with the one passed to this function.
@@ -110,6 +108,19 @@ impl Packet {
 
     /// consumes self and returns the buffer which is the cooked data packet.
     pub fn into_vec(mut self) -> Vec<u8> {
+
+        // calculate ICMP checksum if present.
+        // this needs to be done here as it should include the payload in the checksum calculation
+        if self.selection.contains_key(&Protocol::ICMP) {
+            let index: usize = *self.selection.get(&Protocol::ICMP).unwrap() as usize;
+            let mut icmp_data: Vec<u8> = self.buffer[(index as usize)..].iter().map(|x| *x).collect(); // assuming here that icmp header is the last one, i.e. there are no more added after it
+            if self.payload.len() > 0 {
+                icmp_data.extend(self.payload.iter());
+            }
+            let checksum = checksum(&icmp_data, 1).split_to_bytes();
+            self.buffer[index + 2] = checksum[0];
+            self.buffer[index + 3] = checksum[1];
+        }
         self.buffer.append(&mut self.payload);
         self.buffer
     }

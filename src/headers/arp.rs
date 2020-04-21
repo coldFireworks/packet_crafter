@@ -1,4 +1,4 @@
-use super::{Header, TransportHeader, PacketData, Protocol, ParseError};
+use super::{Header, PacketData, Protocol, ParseError};
 use crate::AsBeBytes;
 
 pub const REQUEST: u16 = 1;
@@ -104,9 +104,5 @@ impl Header for ArpHeader {
          * making the total length 18, so we just always return that here
          */
         28
-    }
-
-    fn into_transport_header(&mut self) -> Option<&mut dyn TransportHeader> {
-        None
     }
 }

@@ -1,5 +1,5 @@
 use crate::{AsBeBytes, checksum};
-use super::{Header, TransportHeader, PacketData, Protocol, ParseError};
+use super::{Header, PacketData, Protocol, ParseError};
 
 #[derive(AddGetter, AddSetter)]
 #[get]
@@ -66,9 +66,5 @@ impl Header for IcmpHeader {
 
     fn get_min_length() -> u8 {
         8
-    }
-
-    fn into_transport_header(&mut self) -> Option<&mut dyn TransportHeader> {
-        None
     }
 }

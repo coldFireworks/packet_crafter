@@ -1,4 +1,4 @@
-use super::{Header, TransportHeader, PacketData, Protocol, ParseError};
+use super::{Header, PacketData, Protocol, ParseError};
 use crate::AsBeBytes;
 
 #[derive(AddGetter, AddSetter)]
@@ -70,9 +70,5 @@ impl Header for EthernetHeader {
 
     fn get_min_length() -> u8 {
         14
-    }
-
-    fn into_transport_header(&mut self) -> Option<&mut dyn TransportHeader> {
-        None
     }
 }

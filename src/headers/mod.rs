@@ -38,7 +38,9 @@ pub trait Header {
 
     /// attempts to coerce the header (a type which implements the Header trait) into a &mut dyn TransportHeader.
     /// Only returns `Option::Some` when the underlying concrete type is a `UdpHeader` or a `TcpHeader`
-    fn into_transport_header(&mut self) -> Option<&mut dyn TransportHeader>;
+    fn into_transport_header(&mut self) -> Option<&mut dyn TransportHeader> {
+        None
+    }
 }
 
 pub trait TransportHeader {

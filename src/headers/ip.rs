@@ -1,6 +1,5 @@
 use crate::{protocol_numbers, AsBeBytes, checksum};
-use super::{Header, TransportHeader, PacketData, Protocol, ParseError};
-// use crate::net_tools::{checksum, protocol_numbers};
+use super::{Header, PacketData, Protocol, ParseError};
 
 // Note: always v4 until I implement v6 functionality
 #[derive(AddGetter, AddSetter)]
@@ -95,9 +94,5 @@ impl Header for IpHeader {
 
     fn get_min_length() -> u8 {
         20
-    }
-
-    fn into_transport_header(&mut self) -> Option<&mut dyn TransportHeader> {
-        None
     }
 }
