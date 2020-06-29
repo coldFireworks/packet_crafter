@@ -27,7 +27,7 @@ fn icmp_checksum_is_calculated() {
 }
 
 #[test]
-fn test_get_header_method() {
+fn test_get_ipv4_header_method() {
     let mut p = Packet::new(vec![Protocol::ETH, Protocol::IP, Protocol::TCP]);
     p.add_header(
         headers::EthernetHeader::new(
@@ -59,6 +59,59 @@ fn test_get_header_method() {
     assert_eq!(eth_header_slice[9], 3);
     assert_eq!(eth_header_slice[10], 2);
     assert_eq!(eth_header_slice[11], 1);
+}
+
+#[test]
+fn test_get_ipv6_header_method() {
+    let mut p = Packet::new(vec![Protocol::ETH, Protocol::IP, Protocol::TCP]);
+    p.add_header(
+        headers::EthernetHeader::new(
+            [6,5,4,3,2,1],
+            [1,2,3,4,5,6],
+            ethertype_numbers::ETHERTYPE_IPV6
+        )
+    );
+    p.add_header(
+        headers::IpHeader::new([0xfd00, 0,0,0,0,0,0,1], [0xfd00, 0,0,0,0,0,0,2], Protocol::TCP)
+    );
+    p.add_header(
+        headers::TcpHeader::new(3838, 3838)
+    );
+    let tcp_header_slice = p.get_header_as_slice(Protocol::TCP).expect("could not find tcp header");
+    let bytes = 3838u16.split_to_bytes();
+    assert_eq!(bytes[0], tcp_header_slice[0]);
+    assert_eq!(bytes[1], tcp_header_slice[1]);
+    let eth_header_slice = p.get_header_as_slice(Protocol::ETH).expect("could not find eth header");
+    assert_eq!(eth_header_slice[0], 1);
+    assert_eq!(eth_header_slice[1], 2);
+    assert_eq!(eth_header_slice[2], 3);
+    assert_eq!(eth_header_slice[3], 4);
+    assert_eq!(eth_header_slice[4], 5);
+    assert_eq!(eth_header_slice[5], 6);
+    assert_eq!(eth_header_slice[6], 6);
+    assert_eq!(eth_header_slice[7], 5);
+    assert_eq!(eth_header_slice[8], 4);
+    assert_eq!(eth_header_slice[9], 3);
+    assert_eq!(eth_header_slice[10], 2);
+    assert_eq!(eth_header_slice[11], 1);
+}
+
+
+#[test]
+#[should_panic]
+fn test_mixing_ip_versions() {
+    let mut p = Packet::new(vec![Protocol::ETH, Protocol::IP]);
+    p.add_header(
+        headers::EthernetHeader::new(
+            [6,5,4,3,2,1],
+            [1,2,3,4,5,6],
+            ethertype_numbers::ETHERTYPE_IPV6
+        )
+    );
+    let src_addr: std::net::IpAddr = "::1".parse().unwrap();
+    p.add_header(
+        headers::IpHeader::new(src_addr, "127.0.0.1".parse().unwrap(), Protocol::TCP)
+    );
 }
 
 #[test]

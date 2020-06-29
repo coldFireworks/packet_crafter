@@ -1,5 +1,6 @@
 use crate::{protocol_numbers, AsBeBytes, checksum};
 use super::{Header, PacketData, Protocol, ParseError};
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 
 // Note: always v4 until I implement v6 functionality
 #[derive(AddGetter, AddSetter)]
@@ -9,12 +10,19 @@ pub struct IpHeader {
     #[get] #[set]   identification: u16,
     #[get] #[set]   ttl: u8,
     #[get]          next_protocol: u8,
-    #[get]          src_ip: [u8; 4],
-    #[get] #[set]   dst_ip: [u8; 4],
+    #[get]          src_ip: IpAddr,
+    #[get] #[set]   dst_ip: IpAddr,
 }
 
 impl IpHeader {
-    pub fn new(src_ip: [u8; 4], dst_ip: [u8; 4], next_proto: Protocol) -> Self {
+    /// Checks at runtime that we do not mix v4 and v6 addresses. Panics otherwise!
+    pub fn new<IA: Into<IpAddr>>(src_ip: IA, dst_ip: IA, next_proto: Protocol) -> Self {
+        let (src_ip, dst_ip) = (src_ip.into(), dst_ip.into());
+        match (src_ip, dst_ip) {
+            (IpAddr::V4(_), IpAddr::V4(_)) => { /* OK */ }
+            (IpAddr::V6(_), IpAddr::V6(_)) => { /* OK */ }
+            _ => { panic!("Invalid IP versions, must not mix IPv4 and IPv6") }
+        };
         IpHeader {
             tos: 0,
             packet_len: 0,
@@ -41,32 +49,44 @@ impl Header for IpHeader {
     fn make(self) -> PacketData {
         let length_bytes = self.packet_len.split_to_bytes();
         let ident_bytes = self.identification.split_to_bytes();
-        let mut packet = vec![
-            0b01000101,      // set version to 4 and header length to 5 ("20 bytes")
-            self.tos,        // service type is just left as routine (0)
-            length_bytes[0], //total length of the packet in bytes
-            length_bytes[1], //total length of the packet in bytes
-            ident_bytes[0],               // Identification
-            ident_bytes[1],               // Identification
-            0b01000000,
-            0,                  // flags and fragment offset
-            self.ttl,           // ttl
-            self.next_protocol, // next level protocol
-            0,                  // checksum
-            0,                  // checksum
-            self.src_ip[0],
-            self.src_ip[1],
-            self.src_ip[2],
-            self.src_ip[3],
-            self.dst_ip[0],
-            self.dst_ip[1],
-            self.dst_ip[2],
-            self.dst_ip[3],
-        ];
-        let checksum = checksum(&packet, 5).split_to_bytes();
-        packet[10] = checksum[0];
-        packet[11] = checksum[1];
-        packet
+        
+        use IpAddr::{V4, V6};
+        match (&self.src_ip, &self.dst_ip) {
+            (&V4(src_ip), &V4(dst_ip)) => {
+                let (src_ip, dst_ip) = (src_ip.octets(), dst_ip.octets());
+                
+                let mut packet = vec![
+                    0b01000101,      // set version to 4 and header length to 5 ("20 bytes")
+                    self.tos,        // service type is just left as routine (0)
+                    length_bytes[0], //total length of the packet in bytes
+                    length_bytes[1], //total length of the packet in bytes
+                    ident_bytes[0],               // Identification
+                    ident_bytes[1],               // Identification
+                    0b01000000,
+                    0,                  // flags and fragment offset
+                    self.ttl,           // ttl
+                    self.next_protocol, // next level protocol
+                    0,                  // checksum
+                    0,                  // checksum
+                    src_ip[0],
+                    src_ip[1],
+                    src_ip[2],
+                    src_ip[3],
+                    dst_ip[0],
+                    dst_ip[1],
+                    dst_ip[2],
+                    dst_ip[3],
+                ];
+                let checksum = checksum(&packet, 5).split_to_bytes();
+                packet[10] = checksum[0];
+                packet[11] = checksum[1];
+                packet
+            }
+            (&V6(src_ip), &V6(dst_ip)) => {
+                todo!("v6 support")
+            }
+            _ => unreachable!(),
+        }
     }
 
     fn parse(raw_data: &[u8]) -> Result<Box<Self>, ParseError> {
@@ -79,8 +99,10 @@ impl Header for IpHeader {
             identification: ((raw_data[4] as u16) << 8) + raw_data[5] as u16,
             ttl: raw_data[8],
             next_protocol: raw_data[9],
-            src_ip: [raw_data[12], raw_data[13], raw_data[14], raw_data[15]],
-            dst_ip: [raw_data[16], raw_data[17], raw_data[18], raw_data[19]],
+            // TODO handle v6
+            src_ip: [raw_data[12], raw_data[13], raw_data[14], raw_data[15]].into(),
+            // TODO handle v6
+            dst_ip: [raw_data[16], raw_data[17], raw_data[18], raw_data[19]].into(),
         }))
     }
 
