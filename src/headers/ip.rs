@@ -1,8 +1,7 @@
 use super::{Header, PacketData, ParseError, Protocol};
 use crate::{checksum, protocol_numbers, AsBeBytes};
-use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
+use std::net::IpAddr;
 
-// Note: always v4 until I implement v6 functionality
 #[derive(AddGetter, AddSetter)]
 pub struct IpHeader {
     #[get]

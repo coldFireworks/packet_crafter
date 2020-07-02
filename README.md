@@ -80,7 +80,7 @@ This step may not always be necessary, in cases like ICMP echos where there does
 		new_packet.extend_payload("Hello, world!".bytes());
 ***Step 4***
 
-The data is now ready, so we just need to bake the packet. This is where checksum fields and length fields duch as the one in the IP header will be populated (see [this doc page](https://docs.rs/packet_crafter/0.1.4/packet_crafter/headers/trait.Header.html#tymethod.make) for an explanation of why I decided to calculate these even though the OS will likely overwrite them)
+The data is now ready, so we just need to bake the packet. This is where checksum fields and length fields such as the one in the IP header will be populated (see [this doc page](https://docs.rs/packet_crafter/0.1.4/packet_crafter/headers/trait.Header.html#tymethod.make) for an explanation of why I decided to calculate these even though the OS will likely overwrite them)
 		
 		let data: Vec<u8> = new_packet.into_vec();
 	}
@@ -98,6 +98,8 @@ Parsing a packet is made very simple, as long as the packet is one starting with
 		let raw_data: &[u8] = your_function_to_read_a_packet_from_socket();
 		let parsed_packet: Result<Packet, packet_crafter::ParseError> = Packet::parse(raw_data);
 	}
+
+*Note: parsing has not yet been implemented for IPv6 packets*
 
 ### manipulating a packet
 

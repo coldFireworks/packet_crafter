@@ -61,7 +61,7 @@ impl Packet {
         self.buffer.extend(buf.make().into_iter());
     }
 
-    /// used internally to call functions which calcukate checsum and length fields when the header is added to the packet
+    /// used internally to call functions which calculate checsum and length fields when the header is added to the packet
     fn calculate_fields(&mut self, buf: &mut impl Header) {
         match buf.into_transport_header() {
             Some(th) => {
